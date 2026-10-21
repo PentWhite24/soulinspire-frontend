@@ -1,30 +1,21 @@
-import { BY_ID } from "../data/products.js";
-
-export const FREE_DELIVERY_OVER = 50000;
-export const VAT_RATE = 0.075;
-
-export const ZONES = {
-  lagos: { label: "Lagos", std: 2500, exp: 4500, days: "1–2 days", etaDays: 2 },
-  rivers: { label: "Rivers (Port Harcourt)", std: 3000, exp: 5500, days: "2–3 days", etaDays: 3 },
-  fct: { label: "FCT (Abuja)", std: 3000, exp: 5500, days: "2–3 days", etaDays: 3 },
-  other: { label: "Other states", std: 4500, exp: 8000, days: "3–6 days", etaDays: 6 },
-};
-
-export const PROMO_CODES = { SOUL10: 0.1 };
+// Client-side estimate of the bag and checkout totals, using the delivery zones, VAT rate
+// and free-delivery threshold from the API's /config. The API recalculates every order,
+// and the confirmation page shows the API's figures.
 
 export const formatNaira = (n) => "₦" + Math.round(n).toLocaleString("en-NG");
 
-export function computeTotals(cart, { promo = null, zone = "lagos", ship = "std" } = {}) {
-  const subtotal = cart.reduce((s, l) => s + BY_ID[l.id].price * l.qty, 0);
+export function computeTotals(cart, byId, config, { promo = null, zone = "lagos", ship = "std" } = {}) {
+  const subtotal = cart.reduce((s, l) => s + (byId[l.id]?.price ?? 0) * l.qty, 0);
   const items = cart.reduce((s, l) => s + l.qty, 0);
   const discount = promo ? Math.round(subtotal * promo.pct) : 0;
   const afterDiscount = subtotal - discount;
-  const z = ZONES[zone];
+  const z = config?.zones?.[zone];
+  const freeOver = config?.freeDeliveryOver ?? Infinity;
 
   let delivery = 0;
-  if (subtotal > 0 && ship === "exp") delivery = z.exp;
-  if (subtotal > 0 && ship === "std") delivery = afterDiscount >= FREE_DELIVERY_OVER ? 0 : z.std;
+  if (z && subtotal > 0 && ship === "exp") delivery = z.exp;
+  if (z && subtotal > 0 && ship === "std") delivery = afterDiscount >= freeOver ? 0 : z.std;
 
-  const vat = Math.round(afterDiscount * VAT_RATE);
+  const vat = Math.round(afterDiscount * (config?.vatRate ?? 0));
   return { subtotal, items, discount, afterDiscount, delivery, vat, total: afterDiscount + delivery + vat };
 }

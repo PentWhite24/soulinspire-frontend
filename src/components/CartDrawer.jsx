@@ -1,14 +1,17 @@
 import { useEffect, useRef } from "react";
-import { BY_ID } from "../data/products.js";
 import { useStore } from "../context/StoreContext.jsx";
-import { computeTotals, formatNaira, FREE_DELIVERY_OVER } from "../lib/pricing.js";
+import { computeTotals, formatNaira } from "../lib/pricing.js";
 import ProductArt from "./ProductArt.jsx";
 
 export default function CartDrawer({ open, onClose, onCheckout }) {
-  const { cart, dispatch } = useStore();
+  const { cart, dispatch, catalogue } = useStore();
+  const { byId, config } = catalogue;
   const closeRef = useRef(null);
-  const t = computeTotals(cart);
-  const left = Math.max(0, FREE_DELIVERY_OVER - t.afterDiscount);
+  const lines = cart.filter((l) => byId[l.id]);
+  const t = computeTotals(lines, byId, config);
+  const freeOver = config?.freeDeliveryOver ?? 0;
+  const left = Math.max(0, freeOver - t.afterDiscount);
+  const vatPct = config ? `${+(config.vatRate * 100).toFixed(2)}%` : "";
 
   useEffect(() => {
     if (!open) return;
@@ -28,8 +31,11 @@ export default function CartDrawer({ open, onClose, onCheckout }) {
         </header>
 
         <div className="items">
-          {cart.length ? cart.map((l, i) => {
-            const p = BY_ID[l.id];
+          {catalogue.status === "loading" && cart.length > 0 ? (
+            <p className="hint" style={{ padding: "48px 0", textAlign: "center" }}>Loading your bag…</p>
+          ) : lines.length ? cart.map((l, i) => {
+            const p = byId[l.id];
+            if (!p) return null;
             return (
               <div className="item" key={l.id + (l.size || "")}>
                 <div className="thumb" style={{ background: p.bg }}><ProductArt product={p} /></div>
@@ -38,9 +44,9 @@ export default function CartDrawer({ open, onClose, onCheckout }) {
                   <small>{l.size && `Size ${l.size} · `}{formatNaira(p.price)}</small>
                   <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 6 }}>
                     <div className="qty">
-                      <button onClick={() => dispatch({ type: "setQty", index: i, qty: l.qty - 1 })} aria-label="Decrease">−</button>
+                      <button onClick={() => dispatch({ type: "setQty", index: i, qty: l.qty - 1, max: p.stock })} aria-label="Decrease">−</button>
                       <span className="num">{l.qty}</span>
-                      <button onClick={() => dispatch({ type: "setQty", index: i, qty: l.qty + 1 })} aria-label="Increase">+</button>
+                      <button onClick={() => dispatch({ type: "setQty", index: i, qty: l.qty + 1, max: p.stock })} aria-label="Increase">+</button>
                     </div>
                     <button className="rm" onClick={() => dispatch({ type: "remove", index: i })}>Remove</button>
                   </div>
@@ -57,14 +63,14 @@ export default function CartDrawer({ open, onClose, onCheckout }) {
           )}
         </div>
 
-        {cart.length > 0 && (
+        {lines.length > 0 && config && (
           <footer>
             <p className="hint">
               {left > 0 ? <>Add <b className="num">{formatNaira(left)}</b> more for free standard delivery</> : "You've unlocked free standard delivery"}
             </p>
-            <div className="meter"><i style={{ width: `${Math.min(100, (t.afterDiscount / FREE_DELIVERY_OVER) * 100)}%` }} /></div>
+            <div className="meter"><i style={{ width: `${Math.min(100, (t.afterDiscount / freeOver) * 100)}%` }} /></div>
             <div className="sum"><span>Subtotal ({t.items} {t.items === 1 ? "item" : "items"})</span><span className="num">{formatNaira(t.subtotal)}</span></div>
-            <p className="hint">Delivery and 7.5% VAT are calculated at checkout.</p>
+            <p className="hint">Delivery and {vatPct} VAT are calculated at checkout.</p>
             <button className="primary" onClick={onCheckout}>Checkout</button>
           </footer>
         )}
