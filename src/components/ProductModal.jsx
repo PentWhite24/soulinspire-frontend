@@ -1,16 +1,15 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import { BY_ID, CATEGORIES } from "../data/products.js";
 import { useStore } from "../context/StoreContext.jsx";
 import { formatNaira } from "../lib/pricing.js";
 import ProductArt from "./ProductArt.jsx";
 
 export default function ProductModal({ productId, onClose, onAdded }) {
   const ref = useRef(null);
-  const { addToCart } = useStore();
+  const { addToCart, catalogue } = useStore();
   const [qty, setQty] = useState(1);
   const [size, setSize] = useState(null);
   const [sizeError, setSizeError] = useState(false);
-  const p = productId ? BY_ID[productId] : null;
+  const p = productId ? catalogue.byId[productId] ?? null : null;
 
   useEffect(() => {
     const d = ref.current;
@@ -34,7 +33,7 @@ export default function ProductModal({ productId, onClose, onAdded }) {
           <div className="pd">
             <div className="art" style={{ background: p.bg }}><ProductArt product={p} /></div>
             <div className="pd-body">
-              <span className="eyebrow">{CATEGORIES.find((c) => c.id === p.cat).label}</span>
+              <span className="eyebrow">{catalogue.categories.find((c) => c.id === p.cat)?.label ?? p.cat}</span>
               <h2 id="pdTitle">{p.name}</h2>
               <p className="line">“{p.line}”</p>
               <div className="price num" style={{ fontSize: 20 }}>{formatNaira(p.price)}</div>
